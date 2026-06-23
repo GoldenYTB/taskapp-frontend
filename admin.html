@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Admin · Withdrawals</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+    background: #0c1322; color: #f2efe6; padding: 20px 16px 60px;
+    max-width: 540px; margin: 0 auto;
+  }
+  h1 { font-size: 20px; margin-bottom: 4px; }
+  .sub { font-size: 13px; color: #8b96a8; margin-bottom: 20px; }
+  .key-row { display: flex; gap: 8px; margin-bottom: 22px; }
+  input {
+    flex: 1; border: 1.5px solid #2a3550; border-radius: 10px; padding: 12px;
+    background: #131c30; color: #f2efe6; font-size: 14px;
+  }
+  button {
+    border: none; border-radius: 10px; padding: 12px 16px; font-weight: 700;
+    font-size: 14px; cursor: pointer;
+  }
+  .load { background: #5fbf7a; color: #0c1322; }
+  .card {
+    border: 1.5px solid #2a3550; border-radius: 14px; padding: 16px;
+    background: #131c30; margin-bottom: 12px;
+  }
+  .amt { font-size: 24px; font-weight: 800; }
+  .meta { font-size: 12px; color: #8b96a8; margin: 6px 0 4px; word-break: break-all; }
+  .actions { display: flex; gap: 8px; margin-top: 12px; }
+  .pay { background: #5fbf7a; color: #0c1322; flex: 1; }
+  .reject { background: #c9663a; color: #fff; flex: 1; }
+  .empty { color: #8b96a8; text-align: center; padding: 30px 0; }
+  .msg { font-size: 13px; margin-top: 10px; color: #5fbf7a; }
+</style>
+</head>
+<body>
+  <h1>Withdrawal review</h1>
+  <div class="sub">Approve each payout manually. Rejecting refunds the user's balance.</div>
+
+  <div class="key-row">
+    <input id="key" type="password" placeholder="Admin secret key" />
+    <button class="load" onclick="loadList()">Load</button>
+  </div>
+
+  <div id="list"></div>
+  <div class="msg" id="msg"></div>
+
+<script>
+const API = "https://taskapp-backend-895v.onrender.com"; // <-- set to your deployed backend
+
+function key() { return document.getElementById("key").value.trim(); }
+function setMsg(t) { document.getElementById("msg").textContent = t; }
+
+async function loadList() {
+  if (!key()) { setMsg("Enter your admin key."); return; }
+  setMsg("");
+  try {
+    const r = await fetch(`${API}/admin/withdrawals?key=${encodeURIComponent(key())}`);
+    if (r.status === 403) { setMsg("Wrong key."); return; }
+    const rows = await r.json();
+    render(rows);
+  } catch (e) { setMsg("Could not load. Check the backend URL."); }
+}
+
+function render(rows) {
+  const box = document.getElementById("list");
+  if (!rows.length) { box.innerHTML = '<div class="empty">No pending withdrawals.</div>'; return; }
+  box.innerHTML = "";
+  rows.forEach(w => {
+    const created = new Date(w.created_at.replace(" ", "T") + "Z");
+    const hoursLeft = Math.max(0, 48 - (Date.now() - created.getTime()) / 36e5);
+    const left = hoursLeft > 0 ? `${hoursLeft.toFixed(1)}h until auto-refund` : "expiring…";
+    const el = document.createElement("div");
+    el.className = "card";
+    el.innerHTML = `
+      <div class="amt">$${w.amount_usd.toFixed(2)} <span style="font-size:14px;color:#5fbf7a">${w.currency || "USDT"} · TON</span></div>
+      <div class="meta">User: ${w.telegram_id}</div>
+      <div class="meta">To: ${w.address}</div>
+      <div class="meta">Requested: ${w.created_at} · ${left}</div>
+      <div class="actions">
+        <button class="pay">Mark paid</button>
+        <button class="reject">Reject &amp; refund</button>
+      </div>`;
+    el.querySelector(".pay").onclick = () => act(w.id, "paid");
+    el.querySelector(".reject").onclick = () => act(w.id, "rejected");
+    box.appendChild(el);
+  });
+}
+
+async function act(id, status) {
+  try {
+    const r = await fetch(`${API}/admin/withdrawals/${id}?key=${encodeURIComponent(key())}`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    });
+    if (r.ok) { setMsg(status === "paid" ? "Marked paid." : "Rejected and refunded."); loadList(); }
+    else setMsg("Action failed.");
+  } catch (e) { setMsg("Action failed."); }
+}
+</script>
+</body>
+</html>
