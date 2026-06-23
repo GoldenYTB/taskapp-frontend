@@ -165,7 +165,7 @@ const user = tg?.initDataUnsafe?.user;
 const uid = user?.id || 0;
 if (user?.first_name) document.getElementById("name").textContent = user.first_name;
 
-const ADSGRAM_BLOCK_ID = "YOUR_BLOCK_ID";
+const ADSGRAM_BLOCK_ID = "36035";
 const AdController = window.Adsgram?.init({ blockId: ADSGRAM_BLOCK_ID });
 
 document.getElementById("watch").onclick = async () => {
