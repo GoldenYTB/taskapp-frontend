@@ -128,16 +128,52 @@
     <div class="earned">Lifetime earned <b>$<span id="earned">0.00</span></b></div>
   </div>
 
+  <div class="section-title">Daily streak</div>
+  <div class="card earn-card">
+    <div class="earn-icon">🔥</div>
+    <div style="flex:1">
+      <div class="t">Day <span id="streak">0</span> streak</div>
+      <div class="d">Check in daily for a growing bonus</div>
+    </div>
+    <button class="btn" id="checkin" style="width:auto;margin:0;padding:10px 16px">Check in</button>
+  </div>
+  <div class="msg" id="streakmsg"></div>
+
   <div class="section-title">Earn rewards</div>
   <div class="card earn-card">
     <div class="earn-icon">📺</div>
-    <div>
+    <div style="flex:1">
       <div class="t">Watch &amp; earn</div>
-      <div class="d">Watch a short ad, get paid instantly</div>
+      <div class="d"><span id="adsleft">20</span> ads left today</div>
     </div>
   </div>
   <button class="btn" id="watch">Watch ad to earn</button>
   <div class="msg" id="admsg"></div>
+
+  <div class="section-title">Tasks &amp; offers (pay more)</div>
+  <div class="card earn-card">
+    <div class="earn-icon">⭐</div>
+    <div style="flex:1">
+      <div class="t">Complete offers</div>
+      <div class="d">Surveys &amp; installs — earn much more per task</div>
+    </div>
+    <button class="btn ghost" id="offers" style="width:auto;margin:0;padding:10px 16px">Open</button>
+  </div>
+
+  <div class="section-title">Special tasks</div>
+  <div id="taskList"></div>
+  <div class="msg" id="taskmsg"></div>
+
+  <div class="section-title">Invite friends</div>
+  <div class="card earn-card">
+    <div class="earn-icon">👥</div>
+    <div style="flex:1">
+      <div class="t"><span id="refcount">0</span> friends invited</div>
+      <div class="d">Earn a bonus when they join &amp; watch ads</div>
+    </div>
+    <button class="btn" id="invite" style="width:auto;margin:0;padding:10px 16px">Invite</button>
+  </div>
+  <div class="msg" id="invitemsg"></div>
 
   <div class="section-title">Withdraw to wallet</div>
   <div class="card">
@@ -191,9 +227,97 @@ async function load() {
     document.getElementById("bal").textContent = d.balance_usd.toFixed(6);
     document.getElementById("earned").textContent = d.total_earned.toFixed(6);
     document.getElementById("min").textContent = d.min_withdrawal.toFixed(2);
+    document.getElementById("streak").textContent = d.streak_days ?? 0;
+    document.getElementById("refcount").textContent = d.ref_count ?? 0;
+    const left = Math.max(0, (d.ads_max ?? 20) - (d.ads_today ?? 0));
+    document.getElementById("adsleft").textContent = left;
+    document.getElementById("watch").disabled = left <= 0;
+    if (left <= 0) setAdMsg("Daily ad limit reached. Come back tomorrow!", "");
   } catch (e) { setMsg("Could not load your wallet. Try again.", "err"); }
 }
 function setMsg(t, kind) { const m = document.getElementById("msg"); m.textContent = t; m.className = "msg " + (kind||""); }
+
+// Daily check-in
+document.getElementById("checkin").onclick = async () => {
+  try {
+    const r = await fetch(API + "/api/checkin", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ telegram_id: uid }),
+    });
+    const d = await r.json();
+    const m = document.getElementById("streakmsg");
+    m.textContent = d.message; m.className = "msg ok";
+    load();
+  } catch (e) {}
+};
+
+// Offerwall — opens your offerwall provider with the user id
+document.getElementById("offers").onclick = () => {
+  // TimeWall offerwall — replace YOUR_PUBLISHER_HASH with the one from your TimeWall dashboard
+  const url = "https://timewall.io/users/login?oid=YOUR_PUBLISHER_HASH&uid=" + uid;
+  if (tg?.openLink) tg.openLink(url); else window.open(url);
+};
+
+// Invite friends — shares the referral link
+document.getElementById("invite").onclick = () => {
+  const link = "https://t.me/TaskIt_officialbot?start=" + uid;
+  const text = "Earn USDT watching ads on TaskIt! Join here:";
+  const share = "https://t.me/share/url?url=" + encodeURIComponent(link) + "&text=" + encodeURIComponent(text);
+  if (tg?.openTelegramLink) tg.openTelegramLink(share);
+  else if (tg?.openLink) tg.openLink(share); else window.open(share);
+  const m = document.getElementById("invitemsg");
+  m.textContent = "Your invite link: " + link; m.className = "msg ok";
+};
+
+// Load and render special tasks
+async function loadTasks() {
+  if (!uid) return;
+  try {
+    const r = await fetch(API + "/api/tasks?telegram_id=" + uid);
+    const tasks = await r.json();
+    const box = document.getElementById("taskList");
+    if (!tasks.length) { box.innerHTML = ""; return; }
+    box.innerHTML = "";
+    tasks.forEach(t => {
+      const el = document.createElement("div");
+      el.className = "card earn-card";
+      el.innerHTML = `<div class="earn-icon">${t.type === "channel" ? "📢" : "🔗"}</div>
+        <div style="flex:1"><div class="t">${t.title}</div>
+        <div class="d">Reward: $${t.reward}</div></div>`;
+      const btn = document.createElement("button");
+      btn.className = "btn" + (t.completed ? " ghost" : "");
+      btn.style.cssText = "width:auto;margin:0;padding:10px 16px";
+      btn.textContent = t.completed ? "Done ✓" : "Go";
+      btn.disabled = t.completed;
+      btn.onclick = () => doTask(t);
+      el.appendChild(btn);
+      box.appendChild(el);
+    });
+  } catch (e) {}
+}
+
+async function doTask(t) {
+  // open the target first (channel or link)
+  const url = t.type === "channel"
+    ? "https://t.me/" + t.target.replace("@", "")
+    : t.target;
+  if (tg?.openTelegramLink && t.type === "channel") tg.openTelegramLink(url);
+  else if (tg?.openLink) tg.openLink(url); else window.open(url);
+
+  // then try to claim (channel tasks verify membership server-side)
+  setTimeout(async () => {
+    try {
+      const r = await fetch(API + "/api/tasks/claim", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ telegram_id: uid, task_id: t.id }),
+      });
+      const d = await r.json();
+      const m = document.getElementById("taskmsg");
+      if (d.error) { m.textContent = d.error; m.className = "msg err"; }
+      else { m.textContent = d.message; m.className = "msg ok"; load(); loadTasks(); }
+    } catch (e) {}
+  }, 2500);
+}
 
 const selectedCoin = "USDT"; // USDT on TON only
 
@@ -212,6 +336,7 @@ document.getElementById("wd").onclick = async () => {
 };
 
 load();
+loadTasks();
 </script>
 </body>
 </html>
