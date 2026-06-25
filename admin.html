@@ -61,6 +61,7 @@
           </select>
         </div>
         <div class="field"><span class="label" id="t-target-label">Channel (@username)</span><input id="t-target" placeholder="@yourchannel" /></div>
+        <div class="field"><span class="label">Image URL (optional)</span><input id="t-image" placeholder="https://...jpg" /></div>
         <div class="field"><span class="label">Reward ($)</span><input id="t-reward" type="number" placeholder="0.01" /></div>
         <button class="primary" style="width:100%" onclick="addTask()">+ Add task</button>
         <div class="msg" id="taskmsg"></div>
@@ -133,12 +134,13 @@ async function addTask() {
   var type = document.getElementById("t-type").value;
   var target = document.getElementById("t-target").value.trim();
   var reward = document.getElementById("t-reward").value.trim();
+  var image_url = document.getElementById("t-image").value.trim();
   var m = document.getElementById("taskmsg");
   if (!title || !target || !reward) { m.textContent = "Fill in all fields."; return; }
   try {
     var r = await fetch(API + "/admin/tasks?key=" + encodeURIComponent(key()), {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: title, type: type, target: target, reward: reward }),
+      body: JSON.stringify({ title: title, type: type, target: target, reward: reward, image_url: image_url }),
     });
     var d = await r.json();
     if (d.error) { m.textContent = d.error; return; }
@@ -146,6 +148,7 @@ async function addTask() {
     document.getElementById("t-title").value = "";
     document.getElementById("t-target").value = "";
     document.getElementById("t-reward").value = "";
+    document.getElementById("t-image").value = "";
     loadTasks();
   } catch (e) { m.textContent = "Failed to add task."; }
 }
