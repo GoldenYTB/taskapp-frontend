@@ -43,6 +43,7 @@
     <div class="tabs">
       <div class="tab active" id="tab-wd" onclick="show('wd')">Withdrawals</div>
       <div class="tab" id="tab-task" onclick="show('task')">Tasks</div>
+      <div class="tab" id="tab-credit" onclick="show('credit')">Credit</div>
     </div>
 
     <div id="view-wd">
@@ -69,6 +70,17 @@
       <button class="primary" style="width:100%;margin-bottom:14px" onclick="loadTasks()">Refresh tasks</button>
       <div id="taskList"></div>
     </div>
+
+    <div id="view-credit" class="hide">
+      <div class="card">
+        <div style="font-weight:700;margin-bottom:12px">Send / credit balance</div>
+        <div style="font-size:12px;color:#8b96a8;margin-bottom:12px">Add money to a user's balance — e.g. if a task glitched. Use a negative number to deduct.</div>
+        <div class="field"><span class="label">User Telegram ID</span><input id="c-uid" placeholder="123456789" /></div>
+        <div class="field"><span class="label">Amount ($)</span><input id="c-amount" type="number" placeholder="0.50" /></div>
+        <button class="primary" style="width:100%" onclick="creditUser()">Credit user</button>
+        <div class="msg" id="creditmsg"></div>
+      </div>
+    </div>
   </div>
 
   <div class="msg" id="msg"></div>
@@ -87,9 +99,27 @@ function unlock() {
 function show(which) {
   document.getElementById("view-wd").classList.toggle("hide", which !== "wd");
   document.getElementById("view-task").classList.toggle("hide", which !== "task");
+  document.getElementById("view-credit").classList.toggle("hide", which !== "credit");
   document.getElementById("tab-wd").className = "tab" + (which === "wd" ? " active" : "");
   document.getElementById("tab-task").className = "tab" + (which === "task" ? " active" : "");
+  document.getElementById("tab-credit").className = "tab" + (which === "credit" ? " active" : "");
   if (which === "task") loadTasks();
+}
+async function creditUser() {
+  var uid = document.getElementById("c-uid").value.trim();
+  var amount = document.getElementById("c-amount").value.trim();
+  var m = document.getElementById("creditmsg");
+  if (!uid || !amount) { m.textContent = "Enter user ID and amount."; return; }
+  try {
+    var r = await fetch(API + "/admin/credit?key=" + encodeURIComponent(key()), {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ telegram_id: uid, amount: amount }),
+    });
+    var d = await r.json();
+    if (d.error) { m.textContent = d.error; return; }
+    m.textContent = "Done! New balance: $" + Number(d.new_balance).toFixed(4);
+    document.getElementById("c-amount").value = "";
+  } catch (e) { m.textContent = "Failed."; }
 }
 function hintTarget() {
   const t = document.getElementById("t-type").value;
