@@ -255,7 +255,7 @@ document.getElementById("checkin").onclick = async () => {
 
 // Offerwall — opens your offerwall provider with the user id
 // TimeWall offerwall — set your real publisher hash here to enable the offers section
-const TIMEWALL_HASH = "YOUR_PUBLISHER_HASH";
+const TIMEWALL_HASH = "3ff8a9126e471795";
 if (TIMEWALL_HASH && TIMEWALL_HASH !== "YOUR_PUBLISHER_HASH") {
   document.getElementById("offerSection").style.display = "block";
 }
@@ -287,7 +287,10 @@ async function loadTasks() {
     tasks.forEach(t => {
       const el = document.createElement("div");
       el.className = "card earn-card";
-      el.innerHTML = `<div class="earn-icon">${t.type === "channel" ? "📢" : "🔗"}</div>
+      const icon = t.image_url
+        ? `<img src="${t.image_url}" style="width:46px;height:46px;border-radius:13px;object-fit:cover;flex:none" />`
+        : `<div class="earn-icon">${t.type === "channel" ? "📢" : "🔗"}</div>`;
+      el.innerHTML = `${icon}
         <div style="flex:1"><div class="t">${t.title}</div>
         <div class="d">Reward: $${t.reward}</div></div>`;
       const btn = document.createElement("button");
