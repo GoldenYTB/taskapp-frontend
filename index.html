@@ -180,14 +180,18 @@
   <div class="section-title">Withdraw to wallet</div>
   <div class="card">
     <div class="coin-row" id="coins">
-      <button class="coin selected" data-c="USDT">
+      <button class="coin selected" data-c="USDT" data-net="TON network" data-ph="Your TON wallet address">
         <span class="ic">₮</span>
         <span><span class="nm">USDT</span><br><span class="net">TON network</span></span>
+      </button>
+      <button class="coin" data-c="LTC" data-net="Litecoin network" data-ph="Your Litecoin (LTC) address">
+        <span class="ic">Ł</span>
+        <span><span class="nm">LTC</span><br><span class="net">Litecoin network</span></span>
       </button>
     </div>
     <input id="addr" placeholder="Your TON wallet address" />
     <button class="btn ghost" id="wd">Request withdrawal</button>
-    <div class="note">Minimum $<span id="min">—</span> · USDT on the TON blockchain. Reviewed manually within 48h — if not approved in time, the amount returns to your balance.</div>
+    <div class="note">Minimum $<span id="min">—</span> · Reviewed manually within 48h — if not approved in time, the amount returns to your balance.</div>
     <div class="msg" id="msg"></div>
   </div>
 
@@ -328,7 +332,15 @@ async function doTask(t) {
   }, 2500);
 }
 
-const selectedCoin = "USDT"; // USDT on TON only
+let selectedCoin = "USDT";
+document.querySelectorAll("#coins .coin").forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll("#coins .coin").forEach(b => b.classList.remove("selected"));
+    btn.classList.add("selected");
+    selectedCoin = btn.dataset.c;
+    document.getElementById("addr").placeholder = btn.dataset.ph;
+  };
+});
 
 document.getElementById("wd").onclick = async () => {
   const address = document.getElementById("addr").value.trim();
@@ -340,7 +352,7 @@ document.getElementById("wd").onclick = async () => {
     });
     const d = await r.json();
     if (d.error) setMsg(d.error, "err");
-    else { setMsg(`Queued $${d.amount_usd.toFixed(2)} USDT. Reviewed within 48h.`, "ok"); load(); }
+    else { setMsg(`Queued $${d.amount_usd.toFixed(2)} in ${selectedCoin}. Reviewed within 48h.`, "ok"); load(); }
   } catch (e) { setMsg("Request failed. Try again.", "err"); }
 };
 
